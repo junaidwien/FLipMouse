@@ -52,6 +52,12 @@
 #define UP_SENSOR_PIN       A7
 #define RIGHT_SENSOR_PIN    A8
 
+#define MAX_ADC_VALUE 4096
+
+// timings for getting coordinate values
+#define CALIB_COORDINATES_TIME 500
+#define CALIB_COORDINATES_TONEINTERVAL 40
+
 //Piezo Pin (for tone generation)
 #define TONE_PIN  9
 
@@ -73,6 +79,10 @@ struct slotGeneralSettings settings = {      // default settings valus, for type
     "",                               // no ir idle code
 }; 
 
+#define FULL_FORCE 2500
+
+struct polarCoordinates standardCoordinates[8] = { {FULL_FORCE,-PI/2},{FULL_FORCE,PI/2},{FULL_FORCE,PI},{FULL_FORCE,0} };
+struct polarCoordinates customCoordinates[8]   = { {0,0},{0,0},{0,0},{0,0} };
 
 uint8_t workingmem[WORKINGMEM_SIZE];     // working memory (command parser, IR-rec/play)
 
@@ -82,7 +92,8 @@ uint8_t reportSlotParameters = REPORT_NONE;
 uint8_t reportRawValues = 0;
 uint8_t actSlot=0;
 
-uint16_t calib_now = 1;                       // calibrate zeropoint right at startup !
+uint8_t  calib_zero = 1;                       // calibrate zeropoint right at startup !
+uint8_t  calib_coordinates = 0;               // calibrate up/down/left/right on demand
 											
 //for chatty serial interface use: DEBUG_FULLOUTPUT (attention: not GUI compatible...)
 //if set to DEBUG_FULLOUTPUT please activate the following preprocessor warning
@@ -172,6 +183,9 @@ void setup() {
    
 }
 
+int ccc=0;
+char str[90];
+
 ///////////////////////////////
 // Loop: the main program loop
 ///////////////////////////////
@@ -180,10 +194,10 @@ void loop() {
  
     pressure = analogRead(PRESSURE_SENSOR_PIN);
     
-    up =       (uint16_t)((uint32_t)analogRead(UP_SENSOR_PIN)  * settings.gd/50); if (up>1023<<2) up=1023<<2; if (up<0) up=0;
-    down =     (uint16_t)((uint32_t)analogRead(DOWN_SENSOR_PIN) * settings.gu/50); if (down>1023<<2) down=1023<<2; if (down<0) down=0;
-    left =     (uint16_t)((uint32_t)analogRead(LEFT_SENSOR_PIN) * settings.gr/50); if (left>1023<<2) left=1023<<2; if (left<0) left=0;
-    right =    (uint16_t)((uint32_t)analogRead(RIGHT_SENSOR_PIN) * settings.gl/50); if (right>1023<<2) right=1023<<2; if (right<0) right=0;
+    up =       (uint16_t)((uint32_t)analogRead(UP_SENSOR_PIN)  * settings.gd/50); if (up>MAX_ADC_VALUE) up=MAX_ADC_VALUE; if (up<0) up=0;
+    down =     (uint16_t)((uint32_t)analogRead(DOWN_SENSOR_PIN) * settings.gu/50); if (down>MAX_ADC_VALUE) down=MAX_ADC_VALUE; if (down<0) down=0;
+    left =     (uint16_t)((uint32_t)analogRead(LEFT_SENSOR_PIN) * settings.gr/50); if (left>MAX_ADC_VALUE) left=MAX_ADC_VALUE; if (left<0) left=0;
+    right =    (uint16_t)((uint32_t)analogRead(RIGHT_SENSOR_PIN) * settings.gl/50); if (right>MAX_ADC_VALUE) right=MAX_ADC_VALUE; if (right<0) right=0;
 
     switch (settings.ro) {
       case 90: tmp=up; up=left; left=down; down=right; right=tmp; break;
@@ -198,13 +212,13 @@ void loop() {
     }
 
     if (StandAloneMode)  {              
-          if (calib_now == 0)  {      // no calibration, use current values for x and y offset !
+          if (calib_zero == 0)  {      // no calibration, use current values for x and y offset !
               x = (left-right) - cx;
               y = (up-down) - cy;
           }
           else  {
-              calib_now--;           // wait for calibration
-              if (calib_now ==0) {   // calibrate now !! get new offset values
+              calib_zero--;           // wait for calibration
+              if (calib_zero ==0) {   // calibrate now !! get new offset values
                  settings.cx = (left-right);                                                   
                  settings.cy = (up-down);
                  cx=settings.cx;
@@ -212,10 +226,28 @@ void loop() {
               }
           }    
 
+          // Calculate polar coordinates
+          force=sqrt(x*x+y*y);
+          if (force!=0) {
+            angle = atan2 ((double)y/force, (double)x/force );
+            dz= settings.dx * (fabs((double)x)/force) + settings.dy * (fabs((double)y)/force);
+          }
+          else { angle=0; dz=settings.dx; }
+
+          if (force > MAX_ADC_VALUE) force=MAX_ADC_VALUE;
+          // Apply Deadzone and update x and y
+          if (force<dz) force=0; else force-=dz;
+          x=(int)(force*cos(angle));
+          y=(int)(force*sin(angle));
+
           reportValues();     // send live data to serial 
-          applyDeadzone();
-          handleModeState(x, y, pressure);  // handle all mouse / joystick / button activities
-        
+
+          if (calib_coordinates) 
+              calib_coordinates=handle_coordinate_calibration(); // calibrate polar coordinates
+          else {
+              apply_mapping();
+              handleModeState(x, y, pressure);  // handle all mouse / joystick / button activities
+          }
           delay(waitTime);  // to limit move movement speed. TBD: remove delay, use millis() !
     }  
     else 
@@ -223,6 +255,135 @@ void loop() {
 
     UpdateLeds();
     UpdateTones();
+}
+
+void apply_mapping() {
+  uint8_t primaryIndex=0,secondaryIndex,n1,n2;
+  double minDifference=2*PI,angleDifference[4],secondaryDifference,ad1,ad2;
+  if (customCoordinates[3].force==0) return; 
+
+  // find nearest vector from saved directions (0:up 1:down 2:left 3:right)
+  for (int i=0;i<4;i++) { 
+     angleDifference[i]=calcAngleDifference(angle,customCoordinates[i].angle);
+     if (minDifference>angleDifference[i]) {
+        minDifference=angleDifference[i];
+        primaryIndex=i;
+     }
+  }
+
+  // find neighbour vectors
+  switch (primaryIndex) {
+     case 0: 
+     case 1: n1=2;n2=3; break;
+     case 2: 
+     case 3: n1=0;n2=1; break;
+  }
+
+  // get angles to neighbouring vectors
+  ad1 = calcAngleDifference(angle,customCoordinates[n1].angle);
+  ad2 = calcAngleDifference(angle,customCoordinates[n2].angle);
+
+  if (ad1<ad2) {
+    secondaryDifference=ad1;
+    secondaryIndex=n1; 
+  } else {
+    secondaryDifference=ad2;
+    secondaryIndex=n2;       
+  }
+
+  // calculate ratios to both neighbours
+  double totalDifference = calcAngleDifference(customCoordinates[primaryIndex].angle,customCoordinates[secondaryIndex].angle);
+  if (totalDifference==0) return;
+  double f1=1.0-minDifference/totalDifference;
+//  double f2=1.0-secondaryDifference/totalDifference; if (f2<0) f2=0;
+  double f2=1.0-f1;
+
+  // estimate force level for current vector
+  double estimatedForce=f1*customCoordinates[primaryIndex].force + f2*customCoordinates[secondaryIndex].force;
+  double forceFactor= force/estimatedForce;
+
+  // map current vector to standard coordinates
+  double mappedForce=f1*standardCoordinates[primaryIndex].force + f2*standardCoordinates[secondaryIndex].force;
+  mappedForce*=forceFactor;
+
+  if ((primaryIndex == 0) && (secondaryIndex == 2)) standardCoordinates[secondaryIndex].angle=-PI;
+  else if ((primaryIndex == 2) && (secondaryIndex == 0)) standardCoordinates[primaryIndex].angle=-PI;
+  else standardCoordinates[2].angle=PI;
+   
+  angle=f1*standardCoordinates[primaryIndex].angle + f2*standardCoordinates[secondaryIndex].angle;
+  
+  x=(int)(mappedForce*cos(angle));
+  y=(int)(mappedForce*sin(angle));
+  
+  if ((force) && ((ccc++) % 10 == 0)) {
+    sprintf(str,"primary=%01d (%03d), secondary=%01d (%03d), angle=%04d, force=%04d",
+                 primaryIndex,(int)(f1*100), secondaryIndex,(int)(f2*100), (int)(angle*180/PI), (int)(forceFactor*100)); 
+    Serial.println(str);
+    /*
+    sprintf(str,"nearest: vektor=%01d, distance=%04d",primaryIndex,(int)(minDifference*180/PI)); 
+    Serial.println(str);
+    sprintf(str,"   next: vektor=%01d, distance=%04d",n,(int)(ad*180/PI)); 
+    Serial.println(str);
+    */
+  }
+}
+
+double calcAngleDifference(double a1, double a2)
+{
+    double ad1,ad2;
+    ad1=fabs(a1-a2);
+
+    if (a1>a2) 
+      ad2=fabs(a1-(a2+2*PI));  
+    else ad2=fabs((a1+2*PI)-a2);        
+
+    if (ad1<ad2) return(ad1);
+    else return(ad2);
+}
+
+uint8_t handle_coordinate_calibration()
+{
+    static int calibCount=0;
+    static uint8_t calibState=0;
+    static double maxForce=0;
+              
+    if (force>maxForce) { 
+      maxForce=force; 
+      customCoordinates[calibState].force = force; 
+      customCoordinates[calibState].angle = angle; 
+
+      sprintf(str,"Calib state %d: X=%04d/Y=%04d -> Force=%04d, Angle=%04d",calibState,x,y,(int)force, (int)(angle*180/PI)); 
+      Serial.println(str);
+    }
+
+    if (!(calibCount++ % CALIB_COORDINATES_TONEINTERVAL))
+        tone(TONE_PIN, 100+200*calibState, 15);
+
+    if (calibCount==CALIB_COORDINATES_TIME) {
+      calibCount=0; 
+      maxForce=0; 
+      delay(1000);
+      if (++calibState==4) {
+        calibState=0;
+        Serial.println("Calibration done:");
+        sprintf(str,"Up   : Force=%04d, Angle=%04d",(int)customCoordinates[0].force, (int)(customCoordinates[0].angle*180/PI)); 
+        Serial.println(str);
+        sprintf(str,"Down : Force=%04d, Angle=%04d",(int)customCoordinates[1].force, (int)(customCoordinates[1].angle*180/PI)); 
+        Serial.println(str);
+        sprintf(str,"Left : Force=%04d, Angle=%04d",(int)customCoordinates[2].force, (int)(customCoordinates[2].angle*180/PI)); 
+        Serial.println(str);
+        sprintf(str,"Right: Force=%04d, Angle=%04d",(int)customCoordinates[3].force, (int)(customCoordinates[3].angle*180/PI)); 
+        Serial.println(str);
+        return(0);    // calibration done!
+      }
+    }
+    return(1);
+}
+
+
+int calcDistance(int x1, int y1, int x2, int y2)
+{
+   return (sqrt((x1-x2)*(x1-x2) + (y1-y2)*(y1-y2)));
 }
 
 void reportValues()
@@ -247,40 +408,6 @@ void reportValues()
       */
       valueReportCount=0;
     }
-}
-
-void applyDeadzone()
-{
-    double x2,y2;
-    char str[80];
-
-    force=sqrt(x*x+y*y);
-    if (force!=0) {
-      angle = atan2 ((double)y/force, (double)x/force );
-      dz= settings.dx * (fabs((double)x)/force) + settings.dy * (fabs((double)y)/force);
-    }
-    else { angle=0; dz=settings.dx; }
-
-    if (force<dz) force=0; else force-=dz;
-    
-    y2=force*sin(angle);
-    x2=force*cos(angle);
-
-    x=int(x2);
-    y=int(y2);
-
-    /*
-    {
-      static uint8_t valueReportCount =0; 
-      if (valueReportCount++ > 20) {                    // report raw values !
-        sprintf(str,"X=%04d Y=%04d F=%04d A=%04d",x,y,(int)force,(int)(angle * 180 / PI));
-        Serial.print(str);     Serial.print(" --> ");
-        sprintf(str,"X2=%04d Y2=%04d",(int)x2,(int)y2);
-        Serial.println(str);
-        valueReportCount=0;
-      }
-    }
-    */
 }
 
 void release_all()  // releases all previously pressed keys

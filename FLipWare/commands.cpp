@@ -42,6 +42,7 @@ const struct atCommandType atCommands[] PROGMEM = {
     {"IW"  , PARTYPE_NONE },  {"BT"  , PARTYPE_UINT }, {"HL"  , PARTYPE_NONE }, {"HR"  , PARTYPE_NONE },
     {"HM"  , PARTYPE_NONE },  {"TL"  , PARTYPE_NONE }, {"TR"  , PARTYPE_NONE }, {"TM"  , PARTYPE_NONE },
     {"KT"  , PARTYPE_STRING },{"IH"  , PARTYPE_STRING },{"IS"  , PARTYPE_NONE },{"II"  , PARTYPE_STRING }, 
+    {"CC"  , PARTYPE_NONE },
 };
 
 void printCurrentSlot()
@@ -317,10 +318,16 @@ void performCommand (uint8_t cmd, int16_t par1, char * keystring, int8_t periodi
             break;
         case CMD_CA:
                if (DebugOutput==DEBUG_FULLOUTPUT)  
-                 Serial.println("start calibration");
+                 Serial.println("start zero calibration");
                initBlink(10,20);
-               calib_now=100;
+               calib_zero=100;
                makeTone(TONE_CALIB,0);
+            break;
+        case CMD_CC:
+               if (DebugOutput==DEBUG_FULLOUTPUT)  
+                 Serial.println("start coordinate calibration");
+               initBlink(50,10);
+               calib_coordinates=1;
             break;
         case CMD_AX:
                settings.ax=par1;

@@ -121,7 +121,10 @@ struct slotGeneralSettings {
   char     ii[MAX_NAME_LEN]; // infrared idle sequence name
 };
 
-
+struct polarCoordinates {
+  double force;   
+  double angle;
+};
 
 struct atCommandType {                      // holds settings for a button function 
   char atCmd[3];
@@ -139,7 +142,8 @@ extern int EmptySlotAddress;
 extern const struct atCommandType atCommands[];
 extern int8_t  input_map[NUMBER_OF_PHYSICAL_BUTTONS];
 
-extern uint16_t calib_now;
+extern uint8_t calib_zero;
+extern uint8_t calib_coordinates;
 extern int16_t  cx;
 extern int16_t  cy;
 extern int8_t moveX;       

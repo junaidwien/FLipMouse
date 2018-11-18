@@ -278,17 +278,18 @@ void handleModeState(int x, int y, int pressure)
                   
                   if (force < accelMaxForce * 0.5)  accelFactor *= 0.997;
                   if (force < accelMaxForce * 0.2)  accelFactor *= 0.992;
+
+                  double dampingFactor=fabs(x-xo)+fabs(y-yo);
+                  accelFactor *= (1.0-dampingFactor/2000.0);
+                  //Serial.println((int)(dampingFactor*100));
+                  xo=x;yo=y;
                   
 //                  if (lastAngle != 0) {
 //                     double dampingFactor=fabs(fabs(angle)-fabs(lastAngle));
 //                     if (dampingFactor>0.1) dampingFactor=0.1;
 //                     accelFactor *= (1.0-dampingFactor/7);
-                     double dampingFactor=fabs(x-xo)+fabs(y-yo);
-                     accelFactor *= (1.0-dampingFactor/2000.0);
-                     //Serial.println((int)(dampingFactor*100));
 //                  } 
-                  lastAngle=angle;
-                  xo=x;yo=y;
+//                  lastAngle=angle;
                 }
  
                 moveValX=x*(float)settings.ax*accelFactor*accelGain;

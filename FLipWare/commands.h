@@ -105,6 +105,7 @@
           AT SR           start reporting raw values (5 sensor values, starting with "VALUES:") 
           AT ER           end reporting raw values
           AT CA           calibration of zeropoint
+          AT CC           calibration of coordinates (up/down/left/right)
           AT AX <uint>    acceleration x-axis  (0-100)
           AT AY <uint>    acceleration y-axis  (0-100)
           AT DX <uint>    deadzone x-axis  (0-1000)
@@ -172,7 +173,7 @@ enum atCommands {
   CMD_AY, CMD_DX, CMD_DY, CMD_TS, CMD_TP, CMD_SP, CMD_SS, CMD_GU, CMD_GD, CMD_GL, CMD_GR, CMD_IR,
   CMD_IP, CMD_IC, CMD_IL, CMD_E2, CMD_JX, CMD_JY, CMD_JZ, CMD_JT, CMD_JS, CMD_JP, CMD_JR, CMD_JH,
   CMD_IT, CMD_KH, CMD_MS, CMD_AC, CMD_MA, CMD_WA, CMD_RO, CMD_IW, CMD_BT, CMD_HL, CMD_HR, CMD_HM,
-  CMD_TL, CMD_TR, CMD_TM, CMD_KT, CMD_IH, CMD_IS, CMD_II,
+  CMD_TL, CMD_TR, CMD_TM, CMD_KT, CMD_IH, CMD_IS, CMD_II, CMD_CC,
   NUM_COMMANDS
 };
 
