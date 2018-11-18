@@ -31,6 +31,7 @@ namespace MouseApp2
     {
         const string VERSION_STRING = "2.7";
         const int MAX_KEYSTRING_LEN = 65;
+        const int ADC_MAX = 4096;
 
         const int SENS_CHANGE_STEP = 1;
         const int DEADZONE_CHANGE_STEP = 1;
