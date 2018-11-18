@@ -32,7 +32,7 @@
 #define MODESTATE_RELEASE                   5
 #define MODESTATE_RETURN_TO_IDLE            6
 
-#define ACCELTIME_MAX 20000
+#define ACCELTIME_MAX 40000
 
 uint8_t modeState = MODESTATE_IDLE;
 
@@ -55,17 +55,18 @@ unsigned long time=0;
 
 void handleModeState(int x, int y, int pressure)
 {         
+    static int xo=0,yo=0;
     static int waitStable=0;
     static int checkPairing=0;
-    static uint16_t accelTimeX=0,accelTimeY=0;
     static uint8_t puffActive=0, sipActive=0, puffCount=0, sipCount=0;
+    static double accelGain=0, accelMaxForce=0,lastAngle=0;
     int strongDirThreshold;
-    float moveVal;
+    float moveValX,moveValY;
 
     currentTime = millis();
     timeDifference = currentTime - previousTime;
     previousTime = currentTime;
-    accelFactor= timeDifference / 100000000.0f;      
+    accelGain= timeDifference / 100000000.0f;      
 
     if (pressure>previousPressure) pressureRising=1; else pressureRising=0;
     if (pressure<previousPressure) pressureFalling=1; else pressureFalling=0;
@@ -78,18 +79,18 @@ void handleModeState(int x, int y, int pressure)
      switch (modeState)  {                                   // handle strong sip and puff actions
       
         case MODESTATE_IDLE:   // IDLE
-           if (pressure > settings.sp) { 
+           if (pressure > settings.sp<<2) { 
                modeState=MODESTATE_ENTER_STRONGPUFF_MODE;
                makeTone(TONE_ENTER_STRONGPUFF,0 );             
                }
-           if (pressure < settings.ss ) { 
+           if (pressure < settings.ss<<2 ) { 
                  modeState=MODESTATE_ENTER_STRONGSIP_MODE;      
                  makeTone(TONE_ENTER_STRONGSIP,0 );             
              }
              break;
              
         case MODESTATE_ENTER_STRONGPUFF_MODE:     // puffed strong, wait for release          
-            if (pressure < settings.tp)
+            if (pressure < settings.tp<<2)
                waitStable++;
             else waitStable=0;
             if (waitStable>=STRONGMODE_STABLETIME)
@@ -97,22 +98,22 @@ void handleModeState(int x, int y, int pressure)
             break;
 
         case MODESTATE_STRONGPUFF_MODE_ACTIVE:    // strong puff mode active
-           if (y<-strongDirThreshold) { 
+           if (y<-strongDirThreshold<<2) { 
              makeTone(TONE_EXIT_STRONGPUFF,0 );
              handlePress(STRONGPUFF_UP_BUTTON); handleRelease(STRONGPUFF_UP_BUTTON);
              modeState=MODESTATE_RETURN_TO_IDLE;
            }
-           else if (x<-strongDirThreshold) { 
+           else if (x<-strongDirThreshold<<2) { 
              makeTone(TONE_EXIT_STRONGPUFF,0 );
              handlePress(STRONGPUFF_LEFT_BUTTON); handleRelease(STRONGPUFF_LEFT_BUTTON);
              modeState=MODESTATE_RETURN_TO_IDLE;
            }
-           else if (x>strongDirThreshold) { 
+           else if (x>strongDirThreshold<<2) { 
              makeTone(TONE_EXIT_STRONGPUFF,0 ); 
              handlePress(STRONGPUFF_RIGHT_BUTTON); handleRelease(STRONGPUFF_RIGHT_BUTTON);
              modeState=MODESTATE_RETURN_TO_IDLE;
            }
-           else if (y>strongDirThreshold) { 
+           else if (y>strongDirThreshold<<2) { 
              makeTone(TONE_EXIT_STRONGPUFF,0 ); 
              handlePress(STRONGPUFF_DOWN_BUTTON); handleRelease(STRONGPUFF_DOWN_BUTTON);
              modeState=MODESTATE_RETURN_TO_IDLE;
@@ -129,7 +130,7 @@ void handleModeState(int x, int y, int pressure)
            break;
 
         case MODESTATE_ENTER_STRONGSIP_MODE:   // sipped strong, wait for release          
-            if (pressure > settings.ts)
+            if (pressure > settings.ts<<2)
                waitStable++;
             else waitStable=0;
             if (waitStable>=STRONGMODE_STABLETIME)
@@ -137,22 +138,22 @@ void handleModeState(int x, int y, int pressure)
             break;
   
         case MODESTATE_STRONGSIP_MODE_ACTIVE:   // strong sip mode active          
-           if (y<-strongDirThreshold) { 
+           if (y<-strongDirThreshold<<2) { 
              makeTone(TONE_EXIT_STRONGSIP,0 );
              handlePress(STRONGSIP_UP_BUTTON); handleRelease(STRONGSIP_UP_BUTTON);
              modeState=MODESTATE_RETURN_TO_IDLE;
            }
-           else if (x<-strongDirThreshold) { 
+           else if (x<-strongDirThreshold<<2) { 
              makeTone(TONE_EXIT_STRONGSIP,0 );
              handlePress(STRONGSIP_LEFT_BUTTON); handleRelease(STRONGSIP_LEFT_BUTTON);
              modeState=MODESTATE_RETURN_TO_IDLE;
            }
-           else if (x>strongDirThreshold) { 
+           else if (x>strongDirThreshold<<2) { 
              makeTone(TONE_EXIT_STRONGSIP,0 ); 
              handlePress(STRONGSIP_RIGHT_BUTTON); handleRelease(STRONGSIP_RIGHT_BUTTON);
              modeState=MODESTATE_RETURN_TO_IDLE;
            }
-           else if (y>strongDirThreshold) { 
+           else if (y>strongDirThreshold<<2) { 
              makeTone(TONE_EXIT_STRONGSIP,0 ); 
              handlePress(STRONGSIP_DOWN_BUTTON); handleRelease(STRONGSIP_DOWN_BUTTON);
              modeState=MODESTATE_RETURN_TO_IDLE;
@@ -198,7 +199,7 @@ void handleModeState(int x, int y, int pressure)
 
            switch (puffActive)  {
             case 0:
-               if (pressure > settings.tp)   // handle single puff actions
+               if (pressure > settings.tp<<2)   // handle single puff actions
                {  
                  makeTone(TONE_INDICATE_PUFF,0);
                  puffActive=1;puffCount=0;
@@ -218,7 +219,7 @@ void handleModeState(int x, int y, int pressure)
 
             case 2:
                  if (puffCount) puffCount--;
-                 if ((pressure < settings.tp)&&(!puffCount)) { 
+                 if ((pressure < settings.tp<<2)&&(!puffCount)) { 
                     handleRelease(PUFF_BUTTON); 
                     puffActive=0; 
                  }
@@ -227,7 +228,7 @@ void handleModeState(int x, int y, int pressure)
  
            switch (sipActive)  {
             case 0:
-               if (pressure < settings.ts)   // handle single sip actions
+               if (pressure < settings.ts<<2)   // handle single sip actions
                {  
                  makeTone(TONE_INDICATE_SIP,0);
                  sipActive=1;sipCount=0;
@@ -247,7 +248,7 @@ void handleModeState(int x, int y, int pressure)
 
             case 2:
                  if (sipCount) sipCount--;
-                 if ((pressure > settings.ts) && (!sipCount)) { 
+                 if ((pressure > settings.ts<<2) && (!sipCount)) { 
                     handleRelease(SIP_BUTTON); 
                     sipActive=0; 
                  }
@@ -263,20 +264,44 @@ void handleModeState(int x, int y, int pressure)
 
                 float max_speed= settings.ms / 10.0f;
   
-                if (x==0) accelTimeX=0;
-                else if (accelTimeX < ACCELTIME_MAX) accelTimeX+=settings.ac;
-                if (y==0) accelTimeY=0;
-                else if (accelTimeY < ACCELTIME_MAX) accelTimeY+=settings.ac;
+                if (force==0) { accelFactor=0; accelMaxForce=0; lastAngle=0;}
+                else {
+
+                  if (force>accelMaxForce) accelMaxForce=force;
+
+                  if (force > accelMaxForce * 0.7)
+                  {
+                      if (accelFactor < ACCELTIME_MAX)
+                          accelFactor +=settings.ac;                    
+                  }
+                  else  accelMaxForce *= 0.99;
+                  
+                  if (force < accelMaxForce * 0.5)  accelFactor *= 0.997;
+                  if (force < accelMaxForce * 0.2)  accelFactor *= 0.992;
+                  
+//                  if (lastAngle != 0) {
+//                     double dampingFactor=fabs(fabs(angle)-fabs(lastAngle));
+//                     if (dampingFactor>0.1) dampingFactor=0.1;
+//                     accelFactor *= (1.0-dampingFactor/7);
+                     double dampingFactor=fabs(x-xo)+fabs(y-yo);
+                     accelFactor *= (1.0-dampingFactor/2000.0);
+                     //Serial.println((int)(dampingFactor*100));
+//                  } 
+                  lastAngle=angle;
+                  xo=x;yo=y;
+                }
+ 
+                moveValX=x*(float)settings.ax*accelFactor*accelGain;
+                moveValY=y*(float)settings.ay*accelFactor*accelGain;
+
+                float actSpeed= sqrt (moveValX*moveValX + moveValY*moveValY);
+                if (actSpeed > max_speed) {
+                   moveValX *= (max_speed / actSpeed);
+                   moveValY *= (max_speed / actSpeed);
+                }
                 
-                moveVal=x*settings.ax*accelFactor*accelTimeX;
-                if (moveVal>max_speed) moveVal=max_speed;
-                if (moveVal< -max_speed) moveVal=-max_speed;
-                accumXpos+=moveVal;
-  
-                moveVal=y*settings.ay*accelFactor*accelTimeY;
-                if (moveVal>max_speed) moveVal=max_speed;
-                if (moveVal< -max_speed) moveVal=-max_speed;
-                accumYpos+=moveVal;
+                accumXpos+=moveValX;
+                accumYpos+=moveValY;
   
                 
                 int xMove = (int)accumXpos;

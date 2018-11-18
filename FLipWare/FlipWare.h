@@ -144,6 +144,8 @@ extern int16_t  cx;
 extern int16_t  cy;
 extern int8_t moveX;       
 extern int8_t moveY;
+extern double force;
+extern double angle;
 
 void performCommand (uint8_t cmd, int16_t par1, char * keystring, int8_t periodicMouseMovement);
 void saveToEEPROM(char * slotname);
