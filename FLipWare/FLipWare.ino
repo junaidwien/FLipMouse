@@ -41,18 +41,15 @@
 
 // Constants and Macro definitions
 
-#define DEFAULT_WAIT_TIME       5   // wait time for one loop interation in milliseconds
-
-// Global variables
+#define LOOP_WAIT_TIME       5000   // wait time for one loop interation in microseconds
 
 // Analog input pins (4FSRs + 1 pressure sensor)
+#define MAX_ADC_VALUE 4096
 #define PRESSURE_SENSOR_PIN A0
 #define DOWN_SENSOR_PIN     A6
 #define LEFT_SENSOR_PIN     A9
 #define UP_SENSOR_PIN       A7
 #define RIGHT_SENSOR_PIN    A8
-
-#define MAX_ADC_VALUE 4096
 
 // timings for getting coordinate values
 #define CALIB_COORDINATES_TIME 500
@@ -61,6 +58,7 @@
 //Piezo Pin (for tone generation)
 #define TONE_PIN  9
 
+// Global variables
 int8_t  input_map[NUMBER_OF_PHYSICAL_BUTTONS]={0,2,1};  	//  maps physical button pins to button index 0,1,2
 uint8_t IR_SENSOR_PIN = 4;								//  input pin of the TSOP IR receiver
 int8_t  led_map[NUMBER_OF_LEDS]={5,16,17};              	//  maps leds pins   
@@ -79,8 +77,7 @@ struct slotGeneralSettings settings = {      // default settings valus, for type
     "",                               // no ir idle code
 }; 
 
-#define FULL_FORCE 2500
-
+#define FULL_FORCE 1500
 struct polarCoordinates standardCoordinates[8] = { {FULL_FORCE,-PI/2},{FULL_FORCE,0},{FULL_FORCE,PI/2},{FULL_FORCE,PI}};
 struct polarCoordinates customCoordinates[8]   = { {0,0},{0,0},{0,0},{0,0} };
 
@@ -100,14 +97,11 @@ uint8_t  calib_coordinates = 0;               // calibrate up/down/left/right on
 uint8_t DebugOutput = DEBUG_NOOUTPUT;       
 //uint8_t DebugOutput = DEBUG_FULLOUTPUT;       
 //#warning "DEACTIVATE DEBUG_FULLOUTPUT AGAIN!!!"
-int waitTime=DEFAULT_WAIT_TIME;
-
 
 int up,down,left,right,tmp;
 int x,y;
 int pressure;
 double dz=0,force=0,angle=0;
-
 int16_t  cx=0,cy=0;
 
 uint8_t blinkCount=0;
@@ -116,6 +110,8 @@ uint8_t blinkStartTime=0;
 
 int inByte=0;
 char * keystring=0;
+
+elapsedMicros loopTime;
 
 // function declarations 
 void UpdateLeds();
@@ -248,7 +244,8 @@ void loop() {
               apply_mapping();
               handleModeState(x, y, pressure);  // handle all mouse / joystick / button activities
           }
-          delay(waitTime);  // to limit move movement speed. TBD: remove delay, use millis() !
+          while (loopTime < LOOP_WAIT_TIME);
+          loopTime=0; // -=LOOP_WAIT_TIME;
     }  
     else 
        handleCimMode();   // create periodic reports if running in AsTeRICS CIM compatibility mode
