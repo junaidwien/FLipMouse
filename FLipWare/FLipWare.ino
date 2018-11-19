@@ -81,7 +81,7 @@ struct slotGeneralSettings settings = {      // default settings valus, for type
 
 #define FULL_FORCE 2500
 
-struct polarCoordinates standardCoordinates[8] = { {FULL_FORCE,-PI/2},{FULL_FORCE,PI/2},{FULL_FORCE,PI},{FULL_FORCE,0} };
+struct polarCoordinates standardCoordinates[8] = { {FULL_FORCE,-PI/2},{FULL_FORCE,0},{FULL_FORCE,PI/2},{FULL_FORCE,PI}};
 struct polarCoordinates customCoordinates[8]   = { {0,0},{0,0},{0,0},{0,0} };
 
 uint8_t workingmem[WORKINGMEM_SIZE];     // working memory (command parser, IR-rec/play)
@@ -258,44 +258,35 @@ void loop() {
 }
 
 void apply_mapping() {
-  uint8_t primaryIndex=0,secondaryIndex,n1,n2;
-  double minDifference=2*PI,angleDifference[4],secondaryDifference,ad1,ad2;
+  uint8_t primaryIndex=0,secondaryIndex;
+  double minDifference=2*PI,angleDifference[4],secondaryDifference;
+
+  //sprintf(str,"pre mapping force=%04d, angle=%04d",(int)(force),(int)(angle*180/PI)); 
+  //Serial.println(str);
+
   if (customCoordinates[3].force==0) return; 
 
   // find nearest vector from saved directions (0:up 1:down 2:left 3:right)
   for (int i=0;i<4;i++) { 
      angleDifference[i]=calcAngleDifference(angle,customCoordinates[i].angle);
-     if (minDifference>angleDifference[i]) {
-        minDifference=angleDifference[i];
+     if (minDifference>fabs(angleDifference[i])) {
+        minDifference=fabs(angleDifference[i]);
         primaryIndex=i;
      }
   }
 
-  // find neighbour vectors
-  switch (primaryIndex) {
-     case 0: 
-     case 1: n1=2;n2=3; break;
-     case 2: 
-     case 3: n1=0;n2=1; break;
-  }
-
-  // get angles to neighbouring vectors
-  ad1 = calcAngleDifference(angle,customCoordinates[n1].angle);
-  ad2 = calcAngleDifference(angle,customCoordinates[n2].angle);
-
-  if (ad1<ad2) {
-    secondaryDifference=ad1;
-    secondaryIndex=n1; 
-  } else {
-    secondaryDifference=ad2;
-    secondaryIndex=n2;       
-  }
+  // find correct (left or right) neighbour
+  if (calcAngleDifference(angle,customCoordinates[primaryIndex].angle) < 0)
+    secondaryIndex= primaryIndex>0?primaryIndex-1:3;
+  else secondaryIndex= primaryIndex<3?primaryIndex+1:0;
+  
+  secondaryDifference=fabs(calcAngleDifference(angle,customCoordinates[secondaryIndex].angle));
 
   // calculate ratios to both neighbours
-  double totalDifference = calcAngleDifference(customCoordinates[primaryIndex].angle,customCoordinates[secondaryIndex].angle);
+  double totalDifference = fabs(calcAngleDifference(customCoordinates[primaryIndex].angle,customCoordinates[secondaryIndex].angle));
   if (totalDifference==0) return;
   double f1=1.0-minDifference/totalDifference;
-//  double f2=1.0-secondaryDifference/totalDifference; if (f2<0) f2=0;
+  // double f2=1.0-secondaryDifference/totalDifference; if (f2<0) f2=0;
   double f2=1.0-f1;
 
   // estimate force level for current vector
@@ -306,9 +297,9 @@ void apply_mapping() {
   double mappedForce=f1*standardCoordinates[primaryIndex].force + f2*standardCoordinates[secondaryIndex].force;
   mappedForce*=forceFactor;
 
-  if ((primaryIndex == 0) && (secondaryIndex == 2)) standardCoordinates[secondaryIndex].angle=-PI;
-  else if ((primaryIndex == 2) && (secondaryIndex == 0)) standardCoordinates[primaryIndex].angle=-PI;
-  else standardCoordinates[2].angle=PI;
+  if (((primaryIndex == 0) && (secondaryIndex == 3)) || ((primaryIndex == 3) && (secondaryIndex == 0)))
+    standardCoordinates[3].angle=-PI;
+  else standardCoordinates[3].angle=PI;
    
   angle=f1*standardCoordinates[primaryIndex].angle + f2*standardCoordinates[secondaryIndex].angle;
   
@@ -331,6 +322,19 @@ void apply_mapping() {
 double calcAngleDifference(double a1, double a2)
 {
     double ad1,ad2;
+    ad1=a1-a2;
+
+    if (a1>a2) 
+      ad2= a1-(a2+2*PI);  
+    else ad2= (a1+2*PI)-a2;        
+
+    if (fabs(ad1)<fabs(ad2)) return(ad1);
+    else return(ad2);
+}
+/*
+double calcAngleDifference(double a1, double a2)
+{
+    double ad1,ad2;
     ad1=fabs(a1-a2);
 
     if (a1>a2) 
@@ -340,6 +344,8 @@ double calcAngleDifference(double a1, double a2)
     if (ad1<ad2) return(ad1);
     else return(ad2);
 }
+
+ */
 
 uint8_t handle_coordinate_calibration()
 {
@@ -366,13 +372,13 @@ uint8_t handle_coordinate_calibration()
       if (++calibState==4) {
         calibState=0;
         Serial.println("Calibration done:");
-        sprintf(str,"Up   : Force=%04d, Angle=%04d",(int)customCoordinates[0].force, (int)(customCoordinates[0].angle*180/PI)); 
+        sprintf(str,"   Up: Force=%04d, Angle=%04d",(int)customCoordinates[0].force, (int)(customCoordinates[0].angle*180/PI)); 
         Serial.println(str);
-        sprintf(str,"Down : Force=%04d, Angle=%04d",(int)customCoordinates[1].force, (int)(customCoordinates[1].angle*180/PI)); 
+        sprintf(str,"Right: Force=%04d, Angle=%04d",(int)customCoordinates[1].force, (int)(customCoordinates[1].angle*180/PI)); 
         Serial.println(str);
-        sprintf(str,"Left : Force=%04d, Angle=%04d",(int)customCoordinates[2].force, (int)(customCoordinates[2].angle*180/PI)); 
+        sprintf(str," Down: Force=%04d, Angle=%04d",(int)customCoordinates[2].force, (int)(customCoordinates[2].angle*180/PI)); 
         Serial.println(str);
-        sprintf(str,"Right: Force=%04d, Angle=%04d",(int)customCoordinates[3].force, (int)(customCoordinates[3].angle*180/PI)); 
+        sprintf(str," Left: Force=%04d, Angle=%04d",(int)customCoordinates[3].force, (int)(customCoordinates[3].angle*180/PI)); 
         Serial.println(str);
         return(0);    // calibration done!
       }
