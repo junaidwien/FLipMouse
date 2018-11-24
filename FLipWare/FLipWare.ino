@@ -44,7 +44,7 @@
 #define LOOP_WAIT_TIME       5000   // wait time for one loop interation in microseconds
 
 // Analog input pins (4FSRs + 1 pressure sensor)
-#define MAX_ADC_VALUE 4096
+#define MAX_ADC_VALUE 1024
 #define PRESSURE_SENSOR_PIN A0
 #define DOWN_SENSOR_PIN     A6
 #define LEFT_SENSOR_PIN     A9
@@ -142,7 +142,7 @@ void setup() {
    pinMode(IR_SENSOR_PIN,INPUT);
    analogWriteFrequency(IR_LED_PIN, 38000);  // TBD: flexible carrier frequency for IR, not only 38kHz !
 
-   analogReadResolution(12); 
+   // analogReadResolution(12);   // switch from 10-bit to 12-bit ADC resolution 
    analogReadAveraging(64);
 
    pinMode(LED_PIN,OUTPUT);
@@ -219,6 +219,7 @@ void loop() {
                  settings.cy = (up-down);
                  cx=settings.cx;
                  cy=settings.cy;
+                 calib_coordinates=1; // state coordinate calibration!
               }
           }    
 
@@ -363,6 +364,14 @@ uint8_t handle_coordinate_calibration()
         tone(TONE_PIN, 100+200*calibState, 15);
 
     if (calibCount==CALIB_COORDINATES_TIME) {
+      if ((calibState==0) && (maxForce<50)) {  // cancle calibration because maxForce too low !
+         calibState=calibCount=maxForce=0;
+         for (int i=0;i<4;i++) {
+            customCoordinates[i].force = 0; 
+            customCoordinates[i].angle = 0;
+         } 
+         return(0);
+      }
       calibCount=0; 
       maxForce=0; 
       delay(1000);
