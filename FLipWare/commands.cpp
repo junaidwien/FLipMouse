@@ -46,6 +46,48 @@ const struct atCommandType atCommands[] PROGMEM = {
 
 void printCurrentSlot()
 {
+	if(isExtraSerialActive())
+	{
+        Serial_AUX.print("Slot:");  Serial_AUX.println(slotName);
+        Serial_AUX.print("AT AX "); Serial_AUX.println(settings.ax); 
+        Serial_AUX.print("AT AY "); Serial_AUX.println(settings.ay);
+        Serial_AUX.print("AT DX "); Serial_AUX.println(settings.dx);
+        Serial_AUX.print("AT DY "); Serial_AUX.println(settings.dy);
+        Serial_AUX.print("AT MS "); Serial_AUX.println(settings.ms);
+        Serial_AUX.print("AT AC "); Serial_AUX.println(settings.ac);
+        Serial_AUX.print("AT TS "); Serial_AUX.println(settings.ts);
+        Serial_AUX.print("AT TP "); Serial_AUX.println(settings.tp);
+        Serial_AUX.print("AT WS "); Serial_AUX.println(settings.ws);
+        Serial_AUX.print("AT SP "); Serial_AUX.println(settings.sp);
+        Serial_AUX.print("AT SS "); Serial_AUX.println(settings.ss);
+        Serial_AUX.print("AT MM "); Serial_AUX.println(settings.stickMode);
+        Serial_AUX.print("AT GU "); Serial_AUX.println(settings.gu);
+        Serial_AUX.print("AT GD "); Serial_AUX.println(settings.gd);
+        Serial_AUX.print("AT GL "); Serial_AUX.println(settings.gl);
+        Serial_AUX.print("AT GR "); Serial_AUX.println(settings.gr);
+        Serial_AUX.print("AT RO "); Serial_AUX.println(settings.ro);
+        Serial_AUX.print("AT BT "); Serial_AUX.println(settings.bt);
+        Serial_AUX.print("AT II "); Serial_AUX.println(settings.ii);
+        
+        for (int i=0;i<NUMBER_OF_BUTTONS;i++) 
+        {
+           Serial_AUX.print("AT BM "); 
+           if (i<9) Serial_AUX.print("0");  // leading zero for button numbers !
+           Serial_AUX.println(i+1); 
+           Serial_AUX.print("AT "); 
+           int actCmd = buttons[i].mode;
+           char cmdStr[4];
+           strcpy_FM(cmdStr,(uint_farptr_t_FM)atCommands[actCmd].atCmd);
+           Serial_AUX.print(cmdStr);
+            switch (pgm_read_byte_near(&(atCommands[actCmd].partype))) 
+            {
+               case PARTYPE_UINT: 
+               case PARTYPE_INT:  Serial_AUX.print(" ");Serial_AUX.print(buttons[i].value); break;
+               case PARTYPE_STRING: Serial_AUX.print(" ");Serial_AUX.print(keystringButtons[i]); break;
+            }
+            Serial_AUX.println("");
+        }	
+	} else {
         Serial.print("Slot:");  Serial.println(slotName);
         Serial.print("AT AX "); Serial.println(settings.ax); 
         Serial.print("AT AY "); Serial.println(settings.ay);
@@ -85,6 +127,7 @@ void printCurrentSlot()
             }
             Serial.println("");
         }
+	}
 }
 
 
@@ -114,14 +157,18 @@ void performCommand (uint8_t cmd, int16_t par1, char * keystring, int8_t periodi
     switch(cmd) {
         case CMD_ID:
                Serial.println(VERSION_STRING); 
+               if(isExtraSerialActive()) Serial_AUX.println(VERSION_STRING); 
             break;
         case CMD_BM:
                release_all();
                if (DebugOutput==DEBUG_FULLOUTPUT)  
                {  Serial.print("set mode for button "); Serial.println(par1); }
-               if ((par1>0) && (par1<=NUMBER_OF_BUTTONS))
+               if ((par1>0) && (par1<=NUMBER_OF_BUTTONS)) {
                    actButton=par1;
-               else  Serial.println("?");
+               } else { 
+				   Serial.println("?");
+				   if(isExtraSerialActive()) Serial_AUX.println("?");
+			   }
             break;
         
         case CMD_CL:

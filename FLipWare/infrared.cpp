@@ -79,6 +79,7 @@ void record_IR_command(char * name)
 		if(duration >= IR_USER_TIMEOUT_MS)
 		{
 			Serial.println("IR_TIMEOUT: User timeout");
+			if(isExtraSerialActive()) Serial_AUX.println("IR_TIMEOUT: User timeout");
 			return;
 		} 
 	}
@@ -102,9 +103,14 @@ void record_IR_command(char * name)
 	  toggle = !toggle;  // for next edge detection
 	}
 
-  if (edges==IR_EDGE_REC_MAX)
-    Serial.println("IR-Code sequence full.");
-  else Serial.println("IR-Code timeout reached.");
+	if (edges==IR_EDGE_REC_MAX)
+	{
+		Serial.println("IR-Code sequence full.");
+		if(isExtraSerialActive()) Serial_AUX.println("IR-Code sequence full.");
+	} else {
+		Serial.println("IR-Code timeout reached.");
+		if(isExtraSerialActive()) Serial_AUX.println("IR-Code timeout reached.");
+	}
 
 	//play a feedback tone
 	makeTone(TONE_IR_REC,0);
@@ -123,10 +129,18 @@ void record_IR_command(char * name)
 	Serial.print(name);
 	Serial.print(" with ");
 	Serial.print(edges);
-  Serial.println(" edge times.");
+	Serial.println(" edge times.");
+	if(isExtraSerialActive())
+	{
+		Serial_AUX.print("IR: recorded command ");
+		Serial_AUX.print(name);
+		Serial_AUX.print(" with ");
+		Serial_AUX.print(edges);
+		Serial_AUX.println(" edge times.");
+	}
 
-  //save the recorded command to the EEPROM storage
-  saveIRToEEPROM(name,timings,edges);
+	//save the recorded command to the EEPROM storage
+	saveIRToEEPROM(name,timings,edges);
 
 }
 

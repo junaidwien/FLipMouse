@@ -36,7 +36,7 @@
  * Mouse movements, buttons and scroll wheel.
  * The limit for the movement is +127/-127
  */
-void mouseBT(int x, int y, uint8_t scroll);
+void mouseBT(int x, int y, int8_t scroll);
 
 
 /**
@@ -75,6 +75,20 @@ boolean isMouseBTPressed(uint8_t mousebutton);
  * 
  */
 void initBluetooth();
+
+/**
+ * @name isExtraSerialActive
+ * @return true, if any AT cmd output & input should be routed to addon serial; false if not
+ * 
+ * For providing WebGUI functionality (and future improvements), we
+ * need to know if the AT command data (e.g. version string, report raw values, slot output,...)
+ * should be sent to the external module (and the other way round).
+ * 
+ * If there is an ESP32miniBT addon with firmware >0.1, we will utilize
+ * it as WiFi config tool (therefore -> all AT commands & data should be sent both directions,
+ * alongside the "normal" BT HID stuff).
+ */
+bool isExtraSerialActive();
 
 /**
  * 

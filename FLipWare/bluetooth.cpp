@@ -40,7 +40,7 @@ long btsendTimestamp=millis();
  * Mouse movements, buttons and scroll wheel.
  * The limit for the movement is +127/-127
  */
-void mouseBT(int x, int y, uint8_t scroll)
+void mouseBT(int x, int y, int8_t scroll)
 {
     static int oldMouseButtons=0;
     static int sendCnt=0;
@@ -67,7 +67,6 @@ void mouseBT(int x, int y, uint8_t scroll)
     {   
 		btsendTimestamp=millis(); 
 		
-		///@todo refactor this code here, send more efficient mouse report data.
   		//starting RAW HID mouse report
 		//according to:
 		//https://learn.adafruit.com/introducing-bluefruit-ez-key-diy-bluetooth-hid-keyboard/sending-keys-via-serial
@@ -89,7 +88,11 @@ void mouseBT(int x, int y, uint8_t scroll)
   		Serial_AUX.write((uint8_t)accuY);
   		
   		//maybe the wheel? Not official by Adafruit... -> not working
-  		Serial_AUX.write((uint8_t)0x00); 
+  		//but on ESP32miniBT it is implemented
+  		if(bt_esp32addon == MINIBT01 || bt_esp32addon == MINIBT02)
+  		{
+			Serial_AUX.write((uint8_t)scroll); 
+		}
   		//some additional bytes...
   		Serial_AUX.write((uint8_t)0x00);
   		Serial_AUX.write((uint8_t)0x00);
@@ -134,7 +137,6 @@ boolean isMouseBTPressed(uint8_t mousebutton)
   if (activeMouseButtons & mousebutton) return true;
   return false;
 }
-
 
 /**
  * 
@@ -337,9 +339,13 @@ void initBluetooth()
 
 /**
  * 
- * name: isBluetoothAvailable
+ * @name isBluetoothAvailable
  * @param none
  * @return true, if the BT module is available, false if not
+ * 
+ * @note This function is handling the protocol upgrade to ESP32miniBT v0.1/v0.2.
+ * Each time it is called & we are still in EZKEY mode & incoming serial 
+ * data suggests an ESP32miniBT module we will upgrade.
  * 
  * This method returns true, if the BT module is available and delivered
  * a valid version string
@@ -347,7 +353,47 @@ void initBluetooth()
  */
 bool isBluetoothAvailable()
 {
+	if(bt_esp32addon == EZKEY || bt_esp32addon == NONE)
+	{
+		if(Serial_AUX.available() > 0)
+		{
+			char inputstr[33];
+			Serial_AUX.readBytes(inputstr,32);
+			if(strncmp(inputstr,"ESP32miniBT_v0.1",32) == 0) {
+				bt_esp32addon = MINIBT01;
+				if (DebugOutput==DEBUG_FULLOUTPUT)   Serial.println("BT upgrade to ESP32miniBT v0.1");
+			}
+			if(strncmp(inputstr,"ESP32miniBT_v0.2",32) == 0)
+			{
+				bt_esp32addon = MINIBT02;
+				Serial_AUX.println("$UPGRADE");
+				if (DebugOutput==DEBUG_FULLOUTPUT)   Serial.println("BT upgrade to ESP32miniBT v0.2");
+				delay(10);
+				Serial_AUX.begin(115200);
+			}
+		}
+	}
 	return bt_available;
+}
+
+/**
+ * @name isExtraSerialActive
+ * @return true, if any AT cmd output & input should be routed to addon serial; false if not
+ * 
+ * For providing WebGUI functionality (and future improvements), we
+ * need to know if the AT command data (e.g. version string, report raw values, slot output,...)
+ * should be sent to the external module (and the other way round).
+ * 
+ * If there is an ESP32miniBT addon with firmware >0.1, we will utilize
+ * it as WiFi config tool (therefore -> all AT commands & data should be sent both directions,
+ * alongside the "normal" BT HID stuff).
+ */
+bool isExtraSerialActive()
+{
+	//list all versions with AT cmd capability here...
+	if(bt_esp32addon == MINIBT02) return true;
+	//if none are matching, return false.
+	return false;
 }
 
 /**

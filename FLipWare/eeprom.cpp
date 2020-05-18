@@ -548,7 +548,12 @@ void readFromEEPROMSlotNumber(uint8_t nr, bool search, bool playTone)
 		//skip '\0' seperator
 		if(readEEPROM(address++) != '\0') { 
 		  Serial.print("Error: seperator problem");
-		  Serial.println(readEEPROM(address-1)); 
+		  Serial.println(readEEPROM(address-1));
+		  if(isExtraSerialActive())
+		  {
+			Serial_AUX.print("Error: seperator problem");
+			Serial_AUX.println(readEEPROM(address-1)); 
+		  }
 		}
 		
 		//check for additional payload
@@ -575,8 +580,11 @@ void readFromEEPROMSlotNumber(uint8_t nr, bool search, bool playTone)
 	  Serial.print("actSlot: "); Serial.println(actSlot); 
 	}
 
-	if (reportSlotParameters) 
+	if (reportSlotParameters)
+	{
 		Serial.println("END");   // important: end marker for slot parameter list (command "load all" - AT LA)
+		if(isExtraSerialActive()) Serial_AUX.println("END");
+	}
 }
 
 /**
@@ -628,6 +636,7 @@ void deleteIRCommand(char * name)
 	} else {
 //		if(eepromDebugLevel==EEPROM_BASIC_DEBUG) 
 		  Serial.println("Deleting all IR slots");
+		  if(isExtraSerialActive()) Serial_AUX.println("Deleting all IR slots");
 		for(uint8_t i = 0; i < EEPROM_COUNT_IRCOMMAND; i++) 
 		{
 			if(header.startIRAddress[i] > sizeof(storageHeader))
@@ -790,8 +799,14 @@ void listIRCommands()
 
 		//print out the slot name
 		Serial.print("IRCommand"); Serial.print(i); Serial.print(":");
-		while ((b=readEEPROM(address--)) && b != 0) Serial.write(b); // print slot name 
+		if(isExtraSerialActive()) { Serial_AUX.print("IRCommand"); Serial_AUX.print(i); Serial_AUX.print(":"); }
+		while ((b=readEEPROM(address--)) && b != 0)
+		{
+			Serial.write(b); // print slot name 
+			if(isExtraSerialActive()) Serial_AUX.write(b);
+		}
 		Serial.println();
+		if(isExtraSerialActive()) Serial_AUX.println();
 	}
 }
 
@@ -935,8 +950,14 @@ void listSlots()
 		
 		//print out the slot name
 		Serial.print("Slot"); Serial.print(i); Serial.print(":");
-		while ((b=readEEPROM(address++)) && b != 0) Serial.write(b); // print slot name 
+		if(isExtraSerialActive()) { Serial_AUX.print("Slot"); Serial_AUX.print(i); Serial_AUX.print(":"); }
+		while ((b=readEEPROM(address++)) && b != 0) 
+		{
+			Serial.write(b); // print slot name 
+			if(isExtraSerialActive()) Serial_AUX.write(b); // print slot name 
+		}
 		Serial.println();
+		if(isExtraSerialActive()) Serial_AUX.println();
 	}
 }
 

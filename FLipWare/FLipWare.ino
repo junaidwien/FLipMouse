@@ -196,6 +196,14 @@ void loop() {
       inByte = Serial.read();
       parseByte (inByte);      // implemented in parser.cpp
     }
+    //for upgraded addon modules
+    if(isExtraSerialActive())
+    {
+		while(Serial_AUX.available() > 0) {
+			inByte = Serial_AUX.read();
+			parseByte(inByte);
+		}
+	}
 
     if (StandAloneMode && (millis() >= updateStandaloneTimestamp+waitTime))  {
 
@@ -236,6 +244,13 @@ void reportValues()
       Serial.print(up);Serial.print(",");Serial.print(down);Serial.print(",");
       Serial.print(left);Serial.print(",");Serial.print(right);Serial.print(",");
       Serial.print(x);Serial.print(",");Serial.println(y);
+      if(isExtraSerialActive())
+      {
+		  Serial_AUX.print("VALUES:");Serial_AUX.print(pressure);Serial_AUX.print(",");
+	      Serial_AUX.print(up);Serial_AUX.print(",");Serial_AUX.print(down);Serial_AUX.print(",");
+	      Serial_AUX.print(left);Serial_AUX.print(",");Serial_AUX.print(right);Serial_AUX.print(",");
+	      Serial_AUX.print(x);Serial_AUX.print(",");Serial_AUX.println(y);
+	  }
       /*
       Serial.print("AnalogRAW:");
       Serial.print(analogRead(UP_SENSOR_PIN));

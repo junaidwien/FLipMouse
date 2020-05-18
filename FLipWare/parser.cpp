@@ -96,8 +96,10 @@ void parseCommand (char * cmdstr)
       // Serial.print("cmd:");Serial.print(cmd);Serial.print("numpar:");
       // Serial.print(num);Serial.print("stringpar:");Serial.println(actpos);
       performCommand(cmd,num,actpos,0);       
-    } 
-    else Serial.println("???");       // command not recognized!                
+    } else {
+		if(isExtraSerialActive()) Serial_AUX.println("???");       // command not recognized!                
+		Serial.println("???");       // command not recognized!                
+	}
 }
 
 
@@ -120,8 +122,10 @@ void parseByte (int newByte)  // parse an incoming commandbyte from serial inter
             break;
         case 2: 
                 if ((newByte=='\r') || (newByte=='\n'))  // AT reply: "OK" 
-                {  Serial.println("OK");  readstate=0; }
-                else if (newByte==' ') { cmdlen=0; readstate++; } 
+                {  
+					Serial.println("OK");  readstate=0; 
+					if(isExtraSerialActive()) Serial_AUX.println("OK");
+				} else if (newByte==' ') { cmdlen=0; readstate++; } 
                 else goto err;
             break;
         case 3: 
@@ -130,7 +134,7 @@ void parseByte (int newByte)  // parse an incoming commandbyte from serial inter
                   readstate=0; }
                 else workingmem[cmdlen++]=newByte;
             break;   
-        default: err: Serial.println("?");readstate=0;
+        default: err: if(isExtraSerialActive()) { Serial_AUX.println("?"); } Serial.println("?"); readstate=0;
       }
    }
 }
