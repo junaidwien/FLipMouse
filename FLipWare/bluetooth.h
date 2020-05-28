@@ -90,6 +90,7 @@ void initBluetooth();
  */
 bool isExtraSerialActive();
 
+void setBTAddon(uint8_t level);
 /**
  * 
  * name: keyboardBTPrint

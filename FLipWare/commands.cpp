@@ -87,46 +87,45 @@ void printCurrentSlot()
             }
             Serial_AUX.println("");
         }	
-	} else {
-        Serial.print("Slot:");  Serial.println(slotName);
-        Serial.print("AT AX "); Serial.println(settings.ax); 
-        Serial.print("AT AY "); Serial.println(settings.ay);
-        Serial.print("AT DX "); Serial.println(settings.dx);
-        Serial.print("AT DY "); Serial.println(settings.dy);
-        Serial.print("AT MS "); Serial.println(settings.ms);
-        Serial.print("AT AC "); Serial.println(settings.ac);
-        Serial.print("AT TS "); Serial.println(settings.ts);
-        Serial.print("AT TP "); Serial.println(settings.tp);
-        Serial.print("AT WS "); Serial.println(settings.ws);
-        Serial.print("AT SP "); Serial.println(settings.sp);
-        Serial.print("AT SS "); Serial.println(settings.ss);
-        Serial.print("AT MM "); Serial.println(settings.stickMode);
-        Serial.print("AT GU "); Serial.println(settings.gu);
-        Serial.print("AT GD "); Serial.println(settings.gd);
-        Serial.print("AT GL "); Serial.println(settings.gl);
-        Serial.print("AT GR "); Serial.println(settings.gr);
-        Serial.print("AT RO "); Serial.println(settings.ro);
-        Serial.print("AT BT "); Serial.println(settings.bt);
-        Serial.print("AT II "); Serial.println(settings.ii);
-        
-        for (int i=0;i<NUMBER_OF_BUTTONS;i++) 
-        {
-           Serial.print("AT BM "); 
-           if (i<9) Serial.print("0");  // leading zero for button numbers !
-           Serial.println(i+1); 
-           Serial.print("AT "); 
-           int actCmd = buttons[i].mode;
-           char cmdStr[4];
-           strcpy_FM(cmdStr,(uint_farptr_t_FM)atCommands[actCmd].atCmd);
-           Serial.print(cmdStr);
-            switch (pgm_read_byte_near(&(atCommands[actCmd].partype))) 
-            {
-               case PARTYPE_UINT: 
-               case PARTYPE_INT:  Serial.print(" ");Serial.print(buttons[i].value); break;
-               case PARTYPE_STRING: Serial.print(" ");Serial.print(keystringButtons[i]); break;
-            }
-            Serial.println("");
-        }
+	}
+	Serial.print("Slot:");  Serial.println(slotName);
+	Serial.print("AT AX "); Serial.println(settings.ax); 
+	Serial.print("AT AY "); Serial.println(settings.ay);
+	Serial.print("AT DX "); Serial.println(settings.dx);
+	Serial.print("AT DY "); Serial.println(settings.dy);
+	Serial.print("AT MS "); Serial.println(settings.ms);
+	Serial.print("AT AC "); Serial.println(settings.ac);
+	Serial.print("AT TS "); Serial.println(settings.ts);
+	Serial.print("AT TP "); Serial.println(settings.tp);
+	Serial.print("AT WS "); Serial.println(settings.ws);
+	Serial.print("AT SP "); Serial.println(settings.sp);
+	Serial.print("AT SS "); Serial.println(settings.ss);
+	Serial.print("AT MM "); Serial.println(settings.stickMode);
+	Serial.print("AT GU "); Serial.println(settings.gu);
+	Serial.print("AT GD "); Serial.println(settings.gd);
+	Serial.print("AT GL "); Serial.println(settings.gl);
+	Serial.print("AT GR "); Serial.println(settings.gr);
+	Serial.print("AT RO "); Serial.println(settings.ro);
+	Serial.print("AT BT "); Serial.println(settings.bt);
+	Serial.print("AT II "); Serial.println(settings.ii);
+	
+	for (int i=0;i<NUMBER_OF_BUTTONS;i++) 
+	{
+	   Serial.print("AT BM "); 
+	   if (i<9) Serial.print("0");  // leading zero for button numbers !
+	   Serial.println(i+1); 
+	   Serial.print("AT "); 
+	   int actCmd = buttons[i].mode;
+	   char cmdStr[4];
+	   strcpy_FM(cmdStr,(uint_farptr_t_FM)atCommands[actCmd].atCmd);
+	   Serial.print(cmdStr);
+		switch (pgm_read_byte_near(&(atCommands[actCmd].partype))) 
+		{
+		   case PARTYPE_UINT: 
+		   case PARTYPE_INT:  Serial.print(" ");Serial.print(buttons[i].value); break;
+		   case PARTYPE_STRING: Serial.print(" ");Serial.print(keystringButtons[i]); break;
+		}
+		Serial.println("");
 	}
 }
 

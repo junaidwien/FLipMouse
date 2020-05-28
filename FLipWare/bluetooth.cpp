@@ -22,12 +22,19 @@ typedef enum {NONE,EZKEY,MINIBT01,MINIBT02} addontype_t;
 
 uint8_t bt_available = 0;
 addontype_t bt_esp32addon = NONE;
+//if 0, then we are sending AT command data, if 1 then HID data.
+//switching is done via "$$$" to AT and "%%%" to HID
+uint8_t inHIDMode = 0;
 uint8_t activeKeyCodes[6];
 uint8_t activeModifierKeys = 0;
 uint8_t activeMouseButtons = 0;
 
 long btsendTimestamp=millis();
 
+void setBTAddon(uint8_t level)
+{
+	if(level == 2) bt_esp32addon = MINIBT02;
+}
 /**
  * 
  * name: mouseBT
@@ -57,6 +64,12 @@ void mouseBT(int x, int y, int8_t scroll)
 		Serial.print(y,DEC);
 		Serial.print("/");
 		Serial.println(scroll,DEC);
+	}
+	
+	if(bt_esp32addon == MINIBT02)
+	{
+		if(!inHIDMode) Serial_AUX.println("%%%");
+		inHIDMode = 1;
 	}
 		
     accuX+=x;
@@ -92,6 +105,8 @@ void mouseBT(int x, int y, int8_t scroll)
   		if(bt_esp32addon == MINIBT01 || bt_esp32addon == MINIBT02)
   		{
 			Serial_AUX.write((uint8_t)scroll); 
+		} else {
+			Serial_AUX.write((uint8_t)0x00);
 		}
   		//some additional bytes...
   		Serial_AUX.write((uint8_t)0x00);
@@ -151,6 +166,11 @@ boolean isMouseBTPressed(uint8_t mousebutton)
  */
 void sendBTKeyboardReport() 
 {
+	if(bt_esp32addon == MINIBT02)
+	{
+		if(!inHIDMode) Serial_AUX.println("%%%");
+		inHIDMode = 1;
+	}
 	if(DebugOutput == DEBUG_FULLOUTPUT)
 	{
 		Serial.println("BT keyboard actions:");
@@ -331,10 +351,7 @@ void initBluetooth()
 	//start the AUX serial port 9600 8N1
 	Serial_AUX.begin(9600);
 	bt_available=1;
-	
-	///@todo send identifier to BT module & check response. With BT addon this is much faster and reliable
 	bt_esp32addon = EZKEY;
-	Serial_AUX.println("$ID");
 }
 
 /**
@@ -343,36 +360,12 @@ void initBluetooth()
  * @param none
  * @return true, if the BT module is available, false if not
  * 
- * @note This function is handling the protocol upgrade to ESP32miniBT v0.1/v0.2.
- * Each time it is called & we are still in EZKEY mode & incoming serial 
- * data suggests an ESP32miniBT module we will upgrade.
- * 
  * This method returns true, if the BT module is available and delivered
  * a valid version string
  * False will be returned otherwise
  */
 bool isBluetoothAvailable()
 {
-	if(bt_esp32addon == EZKEY || bt_esp32addon == NONE)
-	{
-		if(Serial_AUX.available() > 0)
-		{
-			char inputstr[33];
-			Serial_AUX.readBytes(inputstr,32);
-			if(strncmp(inputstr,"ESP32miniBT_v0.1",32) == 0) {
-				bt_esp32addon = MINIBT01;
-				if (DebugOutput==DEBUG_FULLOUTPUT)   Serial.println("BT upgrade to ESP32miniBT v0.1");
-			}
-			if(strncmp(inputstr,"ESP32miniBT_v0.2",32) == 0)
-			{
-				bt_esp32addon = MINIBT02;
-				Serial_AUX.println("$UPGRADE");
-				if (DebugOutput==DEBUG_FULLOUTPUT)   Serial.println("BT upgrade to ESP32miniBT v0.2");
-				delay(10);
-				Serial_AUX.begin(115200);
-			}
-		}
-	}
 	return bt_available;
 }
 
@@ -391,7 +384,12 @@ bool isBluetoothAvailable()
 bool isExtraSerialActive()
 {
 	//list all versions with AT cmd capability here...
-	if(bt_esp32addon == MINIBT02) return true;
+	if(bt_esp32addon == MINIBT02) 
+	{
+		if(inHIDMode) Serial_AUX.println("$$$");
+		inHIDMode = 0;
+		return true;
+	}
 	//if none are matching, return false.
 	return false;
 }
@@ -400,12 +398,14 @@ bool isExtraSerialActive()
  * 
  * name: startBTPairing
  * @param none
- * @return none
- * @note Not implemented
+ * @return Always true...
  */
 bool startBTPairing()
 {
-	//we will send a command to the BT addon board here.
-	///@todo which command & implement on BT addon
+	//we will send a command to the BT addon board here, but only if >=v0.2
+	if(bt_esp32addon == MINIBT02)
+	{
+		if(isExtraSerialActive()) Serial_AUX.println("$PAIRING");
+	}
     return true;
 }

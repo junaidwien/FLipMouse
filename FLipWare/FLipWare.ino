@@ -126,9 +126,6 @@ extern uint8_t CimMode;
 void setup() {
    Serial.begin(115200);
    
-   //initialise BT module, if available
-   initBluetooth();
-   
    if (DebugOutput==DEBUG_FULLOUTPUT)  
      Serial.println("FLipMouse started, Flexible Assistive Button Interface ready !");
 
@@ -170,6 +167,9 @@ void setup() {
    {   Serial.print("Free RAM:");  Serial.println(freeRam());}
 
    updateStandaloneTimestamp=millis();
+   
+   //initialise BT module, if available
+   initBluetooth();
 }
 
 ///////////////////////////////
@@ -177,7 +177,7 @@ void setup() {
 ///////////////////////////////
 
 void loop() { 
- 
+	static uint8_t routeToAddon = 0;
     pressure = analogRead(PRESSURE_SENSOR_PIN);
     
     up =       (uint16_t)((uint32_t)analogRead(UP_SENSOR_PIN)  * settings.gd/50); if (up>1023) up=1023; if (up<0) up=0;
@@ -197,11 +197,22 @@ void loop() {
       parseByte (inByte);      // implemented in parser.cpp
     }
     //for upgraded addon modules
-    if(isExtraSerialActive())
+    if(routeToAddon)
     {
 		while(Serial_AUX.available() > 0) {
 			inByte = Serial_AUX.read();
 			parseByte(inByte);
+		}
+	} else {
+		if(Serial_AUX.available() >= strlen("ESP32miniBT_v0.2"))
+		{
+			if(Serial_AUX.readStringUntil('\n').startsWith("ESP32miniBT_v0.2"))
+			{
+				Serial.println("UPGRADING to MINIBT02");
+				Serial_AUX.begin(250000);
+				routeToAddon = 1;
+				setBTAddon(2);
+			}
 		}
 	}
 
