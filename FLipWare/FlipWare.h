@@ -138,7 +138,15 @@ struct atCommandType {                      // holds settings for a button funct
 
 extern uint8_t DebugOutput;
 extern uint8_t actSlot;
+enum AddonUpgradeState
+{
+    ADDON_NORMAL = 0,
+    ADDON_WAIT_FOR_START = 1,
+    ADDON_WAIT_FOR_READY = 2,
+    ADDON_TRANSFER = 3
+};
 extern uint8_t addonUpgrade;
+unsigned long addonUpgradeStart = 0; // timer counter for how many ms passed
 extern uint8_t reportSlotParameters;
 extern uint8_t reportRawValues;
 extern struct slotGeneralSettings settings;
@@ -165,7 +173,7 @@ void initButtons();
 void printCurrentSlot();
 void initBlink(uint8_t count, uint8_t startTime);
 void makeTone(uint8_t kind, uint8_t param);
-
+void handleAddonUpdateStart();
 
 void BlinkLed();
 int  freeRam ();
