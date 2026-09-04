@@ -191,112 +191,18 @@ void loop() {
 	//check if we should go into addon upgrade mode
 	if (addonUpgrade != ADDON_NORMAL)
   {
-      // trigger reset - only needed for first time flashing
-      // pinMode(ADDON_GPIO0,OUTPUT);
-      // digitalWrite(ADDON_GPIO0,LOW);
-      // delay(2);
-      // pinMode(ADDON_RESET,OUTPUT);
-      // digitalWrite(ADDON_RESET,LOW);
-      // delay(2);
-      // digitalWrite(ADDON_RESET,HIGH);
-      // pinMode(ADDON_RESET,INPUT);
-      // Enter transparent transfer mode  
+      static uint8_t startState = 0;
+      static uint8_t finishState = 0;
 
-      static char responseBuffer[64];
-      static uint8_t responsePos = 0;
       // ---------------------------------------------------------
-      // 1. WAIT FOR OTA:start
+      // 1. WAIT FOR OTA:start FROM NORMAL ESP32 APPLICATION
       // ---------------------------------------------------------
       if (addonUpgrade == ADDON_WAIT_FOR_START)
       {
-          // Timeout after 5 seconds
-          if (millis() - addonUpgradeStart > 5000)
+          if (millis() - addonUpgradeStart > 15000)
           {
               Serial.println("OTA:timeout");
-
-              responsePos = 0;
-              responseBuffer[0] = '\0';
-
-              addonUpgrade = ADDON_NORMAL;
-              return;
-          }
-          while (Serial_AUX.available())
-          {
-              char c = Serial_AUX.read();
-
-              // Forward ESP32 response to GUI / PC
-              Serial.write(c);
-
-              // Store received character
-              if (responsePos < sizeof(responseBuffer) - 1)
-              {
-                  responseBuffer[responsePos++] = c;
-                  responseBuffer[responsePos] = '\0';
-              }
-              else
-              {
-                  responsePos = 0;
-                  responseBuffer[0] = '\0';
-              }
-
-              // ESP32 accepted update request
-              if (strstr(responseBuffer, "OTA:start") != NULL)
-              {
-                  Serial.println();
-                  Serial.println("ESP32 restarting into factory updater");
-
-                  responsePos = 0;
-                  responseBuffer[0] = '\0';
-
-                  // Short delay to allow restart
-                  delay(100);
-
-                  // Factory updater uses 500000 baud
-                  Serial_AUX.begin(500000);
-
-                  // Restart timeout timer
-                  addonUpgradeStart = millis();
-
-                  // Wait for OTA:ready
-                  addonUpgrade = ADDON_WAIT_FOR_READY;
-
-                  return;
-              }
-
-              // Factory partition could not be selected
-              if (strstr(responseBuffer, "OTA:not possible") != NULL)
-              {
-                  Serial.println();
-                  Serial.println("ESP32 update could not be started");
-
-                  responsePos = 0;
-                  responseBuffer[0] = '\0';
-
-                  addonUpgrade = ADDON_NORMAL;
-
-                  return;
-              }
-          }
-
-          return;
-      }
-
-      // ---------------------------------------------------------
-      // 2. WAIT FOR OTA:ready
-      // ---------------------------------------------------------
-      if (addonUpgrade == ADDON_WAIT_FOR_READY)
-      {
-          // Give factory updater e.g. 5 seconds to become ready
-          if (millis() - addonUpgradeStart > 5000)
-          {
-              Serial.println("OTA:ready timeout");
-
-              responsePos = 0;
-              responseBuffer[0] = '\0';
-
-              // Return UART to normal baud
-              Serial_AUX.begin(9600);
-
+              startState = 0;
               addonUpgrade = ADDON_NORMAL;
               return;
           }
@@ -305,116 +211,135 @@ void loop() {
           {
               char c = Serial_AUX.read();
 
-              // Forward response to GUI
+              // Also forward response to PC
               Serial.write(c);
 
-              if (responsePos < sizeof(responseBuffer) - 1)
+              // Detect "OTA:start"
+              switch (startState)
               {
-                  responseBuffer[responsePos++] = c;
-                  responseBuffer[responsePos] = '\0';
-              }
-              else
-              {
-                  responsePos = 0;
-                  responseBuffer[0] = '\0';
-              }
+                  case 0:
+                      if (c == 'O') startState = 1;
+                      break;
 
-              // Factory updater is ready for firmware
-              if (strstr(responseBuffer, "OTA:ready") != NULL)
-              {
-                  Serial.println();
-                  Serial.println("ESP32 ready for firmware");
+                  case 1:
+                      if (c == 'T') startState = 2;
+                      else startState = 0;
+                      break;
 
-                  responsePos = 0;
-                  responseBuffer[0] = '\0';
+                  case 2:
+                      if (c == 'A') startState = 3;
+                      else startState = 0;
+                      break;
 
-                  addonUpgrade = ADDON_TRANSFER;
+                  case 3:
+                      if (c == ':') startState = 4;
+                      else startState = 0;
+                      break;
 
-                  return;
-              }
+                  case 4:
+                      if (c == 's') startState = 5;
+                      else startState = 0;
+                      break;
 
-              // Factory updater reported an error
-              if (strstr(responseBuffer, "OTA:error-") != NULL)
-              {
-                  Serial.println();
-                  Serial.println("ESP32 updater reported an error");
+                  case 5:
+                      if (c == 't') startState = 6;
+                      else startState = 0;
+                      break;
 
-                  responsePos = 0;
-                  responseBuffer[0] = '\0';
+                  case 6:
+                      if (c == 'a') startState = 7;
+                      else startState = 0;
+                      break;
 
-                  Serial_AUX.begin(9600);
+                  case 7:
+                      if (c == 'r') startState = 8;
+                      else startState = 0;
+                      break;
 
-                  addonUpgrade = ADDON_NORMAL;
+                  case 8:
+                      if (c == 't')
+                      {
+                          startState = 0;
 
-                  return;
+                          // Factory updater communicates at 500000
+                          Serial_AUX.begin(500000);
+
+                          // From now on: transparent bridge
+                          addonUpgrade = ADDON_TRANSFER;
+
+                          Serial.println();
+                          Serial.println("ESP32 update mode started");
+
+                          return;
+                      }
+                      else
+                      {
+                          startState = 0;
+                      }
+                      break;
               }
           }
 
           return;
       }
 
+
       // ---------------------------------------------------------
-      // 3. TRANSFER FIRMWARE
+      // 2. TRANSPARENT FIRMWARE TRANSFER
       // ---------------------------------------------------------
       if (addonUpgrade == ADDON_TRANSFER)
       {
-          // PC / GUI -> Teensy -> ESP32
+          // PC -> Teensy -> ESP32
           while (Serial.available())
           {
               Serial_AUX.write(Serial.read());
           }
 
-          // ESP32 -> Teensy -> PC / GUI
+          // ESP32 -> Teensy -> PC
           while (Serial_AUX.available())
           {
               char c = Serial_AUX.read();
 
               Serial.write(c);
 
-              // Store characters so we can detect status messages
-              if (responsePos < sizeof(responseBuffer) - 1)
+              // Detect "$FIN"
+              switch (finishState)
               {
-                  responseBuffer[responsePos++] = c;
-                  responseBuffer[responsePos] = '\0';
-              }
-              else
-              {
-                  responsePos = 0;
-                  responseBuffer[0] = '\0';
-              }
+                  case 0:
+                      if (c == '$') finishState = 1;
+                      break;
 
-              // Successful update
-              if (strstr(responseBuffer, "OTA:$FINISHED") != NULL)
-              {
-                  Serial.println();
-                  Serial.println("Update of Add-on is complete");
-                  Serial.println("Returning to regular functionality");
+                  case 1:
+                      if (c == 'F') finishState = 2;
+                      else finishState = 0;
+                      break;
 
-                  responsePos = 0;
-                  responseBuffer[0] = '\0';
+                  case 2:
+                      if (c == 'I') finishState = 3;
+                      else finishState = 0;
+                      break;
 
-                  // Restore normal ESP32 UART speed
-                  Serial_AUX.begin(9600);
+                  case 3:
+                      if (c == 'N')
+                      {
+                          finishState = 0;
 
-                  addonUpgrade = ADDON_NORMAL;
+                          Serial_AUX.begin(9600);
+                          addonUpgrade = ADDON_NORMAL;
 
-                  return;
-              }
+                          Serial.println();
+                          Serial.println("Update of Add-on is complete");
+                          Serial.println(
+                              "Returning to regular functionality"
+                          );
 
-              // Error reported during update
-              if (strstr(responseBuffer, "OTA:error-") != NULL)
-              {
-                  Serial.println();
-                  Serial.println("ESP32 update failed");
-
-                  responsePos = 0;
-                  responseBuffer[0] = '\0';
-
-                  Serial_AUX.begin(9600);
-
-                  addonUpgrade = ADDON_NORMAL;
-
-                  return;
+                          return;
+                      }
+                      else
+                      {
+                          finishState = 0;
+                      }
+                      break;
               }
           }
 

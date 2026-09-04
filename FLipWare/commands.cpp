@@ -453,7 +453,7 @@ void performCommand (uint8_t cmd, int16_t par1, char * keystring, int8_t periodi
             addonUpgrade = ADDON_WAIT_FOR_START;
             addonUpgradeStart = millis();
             Serial.println("Starting upgrade for BT addon!");
-            // Command for upgrade sent to ESP - triggering reset into factory reset mode
+            // Request ESP32 to switch to the factory update application
             Serial_AUX.println("$UG");
 			break;
         case CMD_E2:
