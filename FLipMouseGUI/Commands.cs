@@ -407,6 +407,10 @@ namespace MouseApp2
             sendCmd("AT BC " + command);
         }
 
+        public void sendUpgradeCommand()
+        {
+            sendCmd("AT UG");
+        }
 
         public class Slot
         {

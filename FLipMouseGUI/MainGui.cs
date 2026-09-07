@@ -1654,5 +1654,48 @@ namespace MouseApp2
             pairingsComboBox.Items.Add("Unpair all");
             sendBluetoothCommand("$GP");
         }
+
+        private void label26_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void firmwarePathTextBox_TextChanged(object sender, EventArgs e)
+        {
+
+        }
+
+        private void firmwareUpdateTab_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void browseFirmwareButton_Click(object sender, EventArgs e)
+        {
+            using (OpenFileDialog dialog = new OpenFileDialog())
+            {
+                dialog.Filter = "ESP32 firmware (*.bin)|*.bin";
+                dialog.Title = "Select ESP32 firmware";
+
+                if (dialog.ShowDialog() == DialogResult.OK)
+                {
+                    firmwarePathTextBox.Text = dialog.FileName;
+                }
+            }
+        }
+
+        private void addonUpdateButton_Click(object sender, EventArgs e)
+        {
+            if (serialPort1.IsOpen)
+            {
+                addToLog("Starting Bluetooth add-on firmware update...");
+                sendUpgradeCommand();
+            }
+            else
+            {
+                addToLog("Could not start update - please connect COM port!");
+            }
+        }
     }
 }
+

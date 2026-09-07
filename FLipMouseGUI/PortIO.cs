@@ -67,6 +67,72 @@ namespace MouseApp2
             }
         }
 
+        private async void SendAddonFirmwareAsync(string fileName)
+        {
+            if (!File.Exists(fileName))
+            {
+                addToLog("Firmware file not found.");
+                addonUpdateStatusLabel.Text = "Status: Firmware file not found";
+                return;
+            }
+
+            try
+            {
+                byte[] firmware = File.ReadAllBytes(fileName);
+
+                const int chunkSize = 256;
+
+                addonUpdateProgressBar.Value = 0;
+                addonUpdateButton.Enabled = false;
+
+                for (int offset = 0;
+                     offset < firmware.Length;
+                     offset += chunkSize)
+                {
+                    int bytesToSend = Math.Min(
+                        chunkSize,
+                        firmware.Length - offset
+                    );
+
+                    serialPort1.Write(
+                        firmware,
+                        offset,
+                        bytesToSend
+                    );
+
+                    int progress = (int)(
+                        ((long)offset + bytesToSend) *
+                        100 /
+                        firmware.Length
+                    );
+
+                    addonUpdateProgressBar.Value = progress;
+                    addonUpdateStatusLabel.Text =
+                        "Status: Transferring... " + progress + "%";
+
+                    await Task.Delay(10);
+                }
+
+                addonUpdateStatusLabel.Text =
+                    "Status: Transfer complete - waiting for verification";
+
+                addToLog(
+                    "Firmware transfer complete. Waiting for ESP32 verification..."
+                );
+            }
+            catch (Exception ex)
+            {
+                addonUpdateStatusLabel.Text =
+                    "Status: Update failed";
+
+                addonUpdateButton.Enabled = true;
+
+                addToLog(
+                    "Firmware transfer failed: " + ex.Message
+                );
+            }
+        }
+
 
         public void WorkThreadFunction()
         {
@@ -111,6 +177,35 @@ namespace MouseApp2
 
         public void stringReceived(String newLine)
         {
+            if (newLine.Contains("ESP32 update mode started"))
+            {
+                addToLog("ESP32 is ready for firmware transfer.");
+                addonUpdateStatusLabel.Text = "Status: Transferring firmware...";
+
+                SendAddonFirmwareAsync(firmwarePathTextBox.Text);
+
+                return;
+            }
+            if (newLine.Contains("Update of Add-on is complete"))
+            {
+                addonUpdateProgressBar.Value = 100;
+                addonUpdateStatusLabel.Text = "Status: Firmware update successful";
+                addonUpdateButton.Enabled = true;
+
+                addToLog("Bluetooth add-on firmware update completed successfully.");
+
+                return;
+            }
+
+            if (newLine.Contains("OTA:timeout"))
+            {
+                addonUpdateStatusLabel.Text = "Status: Update failed - timeout";
+                addonUpdateButton.Enabled = true;
+
+                addToLog("Bluetooth add-on firmware update failed: timeout.");
+
+                return;
+            }
             if (newLine.ToUpper().StartsWith(PREFIX_REPORT_VALUES))  // read raw report (ADC values)
             {
                 drawRawValues(newLine.Substring(PREFIX_REPORT_VALUES.Length));
