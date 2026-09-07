@@ -39,6 +39,7 @@ namespace MouseApp2
         const int GAIN_CHANGE_STEP = 1;
 
         Boolean readDone = false;
+        private bool addonUpdateInProgress = false;
         static int slotCounter = 0;
         static int actSlot = 0;
         static int checkVersion = 1;
@@ -1686,15 +1687,42 @@ namespace MouseApp2
 
         private void addonUpdateButton_Click(object sender, EventArgs e)
         {
-            if (serialPort1.IsOpen)
-            {
-                addToLog("Starting Bluetooth add-on firmware update...");
-                sendUpgradeCommand();
-            }
-            else
+            if (!serialPort1.IsOpen)
             {
                 addToLog("Could not start update - please connect COM port!");
+                return;
             }
+
+            if (addonUpdateInProgress)
+            {
+                addToLog("Firmware update is already running.");
+                return;
+            }
+
+            if (string.IsNullOrEmpty(firmwarePathTextBox.Text) ||
+                !File.Exists(firmwarePathTextBox.Text))
+            {
+                MessageBox.Show(
+                    "Please select a valid firmware file first.",
+                    "Firmware Update",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning
+                );
+
+                return;
+            }
+
+            addonUpdateInProgress = true;
+
+            addonUpdateButton.Enabled = false;
+            browseFirmwareButton.Enabled = false;
+
+            addonUpdateProgressBar.Value = 0;
+            addonUpdateStatusLabel.Text = "Status: Starting update...";
+
+            addToLog("Starting Bluetooth add-on firmware update...");
+
+            sendUpgradeCommand();
         }
     }
 }

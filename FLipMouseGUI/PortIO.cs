@@ -119,16 +119,41 @@ namespace MouseApp2
                 addToLog(
                     "Firmware transfer complete. Waiting for ESP32 verification..."
                 );
+                _ = WaitForAddonCompletionTimeoutAsync();
             }
             catch (Exception ex)
             {
+                addonUpdateInProgress = false;
+
                 addonUpdateStatusLabel.Text =
                     "Status: Update failed";
 
                 addonUpdateButton.Enabled = true;
+                browseFirmwareButton.Enabled = true;
 
                 addToLog(
-                    "Firmware transfer failed: " + ex.Message
+                    "Firmware transfer failed: " +
+                    ex.Message
+                );
+            }
+        }
+
+        private async Task WaitForAddonCompletionTimeoutAsync()
+        {
+            await Task.Delay(30000);
+
+            if (addonUpdateInProgress)
+            {
+                addonUpdateInProgress = false;
+
+                addonUpdateStatusLabel.Text =
+                    "Status: Update failed - no completion response";
+
+                addonUpdateButton.Enabled = true;
+                browseFirmwareButton.Enabled = true;
+
+                addToLog(
+                    "Firmware update failed: no completion response received."
                 );
             }
         }
@@ -177,32 +202,49 @@ namespace MouseApp2
 
         public void stringReceived(String newLine)
         {
-            if (newLine.Contains("ESP32 update mode started"))
+            if (addonUpdateInProgress && newLine.Contains("ESP32 update mode started"))
             {
                 addToLog("ESP32 is ready for firmware transfer.");
-                addonUpdateStatusLabel.Text = "Status: Transferring firmware...";
 
-                SendAddonFirmwareAsync(firmwarePathTextBox.Text);
+                addonUpdateStatusLabel.Text =
+                    "Status: Transferring firmware...";
+
+                SendAddonFirmwareAsync(
+                    firmwarePathTextBox.Text
+                );
 
                 return;
             }
-            if (newLine.Contains("Update of Add-on is complete"))
+            if (addonUpdateInProgress && newLine.Contains("Update of Add-on is complete"))
             {
+                addonUpdateInProgress = false;
+
                 addonUpdateProgressBar.Value = 100;
-                addonUpdateStatusLabel.Text = "Status: Firmware update successful";
-                addonUpdateButton.Enabled = true;
+                addonUpdateStatusLabel.Text =
+                    "Status: Firmware update successful";
 
-                addToLog("Bluetooth add-on firmware update completed successfully.");
+                addonUpdateButton.Enabled = true;
+                browseFirmwareButton.Enabled = true;
+
+                addToLog(
+                    "Bluetooth add-on firmware update completed successfully."
+                );
 
                 return;
             }
-
-            if (newLine.Contains("OTA:timeout"))
+            if (addonUpdateInProgress && newLine.Contains("OTA:timeout"))
             {
-                addonUpdateStatusLabel.Text = "Status: Update failed - timeout";
-                addonUpdateButton.Enabled = true;
+                addonUpdateInProgress = false;
 
-                addToLog("Bluetooth add-on firmware update failed: timeout.");
+                addonUpdateStatusLabel.Text =
+                    "Status: Update failed - timeout";
+
+                addonUpdateButton.Enabled = true;
+                browseFirmwareButton.Enabled = true;
+
+                addToLog(
+                    "Bluetooth add-on firmware update failed: timeout."
+                );
 
                 return;
             }
