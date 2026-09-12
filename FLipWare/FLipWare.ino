@@ -295,51 +295,45 @@ void loop() {
               Serial_AUX.write(Serial.read());
           }
 
+          static const char finishToken[] = "$FINISHED";
+          static uint8_t finishIndex = 0;
+
           // ESP32 -> Teensy -> PC
           while (Serial_AUX.available())
           {
               char c = Serial_AUX.read();
 
+              // Forward ESP32 response to GUI
               Serial.write(c);
 
-              // Detect "$FIN"
-              switch (finishState)
+              // Detect complete "$FINISHED"
+              if (c == finishToken[finishIndex])
               {
-                  case 0:
-                      if (c == '$') finishState = 1;
+                  finishIndex++;
+
+                  if (finishIndex == sizeof(finishToken) - 1)
+                  {
+                      finishIndex = 0;
+
+                      Serial_AUX.begin(9600);
+                      addonUpgrade = ADDON_NORMAL;
+
+                      Serial.println();
+                      Serial.println("Update of Add-on is complete");
+                      Serial.println("Returning to regular functionality");
+
                       break;
+                  }
+              }
+              else
+              {
+                  finishIndex = 0;
 
-                  case 1:
-                      if (c == 'F') finishState = 2;
-                      else finishState = 0;
-                      break;
-
-                  case 2:
-                      if (c == 'I') finishState = 3;
-                      else finishState = 0;
-                      break;
-
-                  case 3:
-                      if (c == 'N')
-                      {
-                          finishState = 0;
-
-                          Serial_AUX.begin(9600);
-                          addonUpgrade = ADDON_NORMAL;
-
-                          Serial.println();
-                          Serial.println("Update of Add-on is complete");
-                          Serial.println(
-                              "Returning to regular functionality"
-                          );
-
-                          return;
-                      }
-                      else
-                      {
-                          finishState = 0;
-                      }
-                      break;
+                  // Allow immediate restart if this character is '$'
+                  if (c == finishToken[0])
+                  {
+                      finishIndex = 1;
+                  }
               }
           }
 

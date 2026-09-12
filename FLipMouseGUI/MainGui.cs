@@ -40,6 +40,7 @@ namespace MouseApp2
 
         Boolean readDone = false;
         private bool addonUpdateInProgress = false;
+        private bool addonUpdaterReady = false;
         static int slotCounter = 0;
         static int actSlot = 0;
         static int checkVersion = 1;
@@ -1713,6 +1714,7 @@ namespace MouseApp2
             }
 
             addonUpdateInProgress = true;
+            addonUpdaterReady = false;
 
             addonUpdateButton.Enabled = false;
             browseFirmwareButton.Enabled = false;
@@ -1723,6 +1725,7 @@ namespace MouseApp2
             addToLog("Starting Bluetooth add-on firmware update...");
 
             sendUpgradeCommand();
+            _ = WaitForAddonReadyTimeoutAsync();
         }
     }
 }

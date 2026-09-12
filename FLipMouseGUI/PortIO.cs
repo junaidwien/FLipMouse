@@ -158,6 +158,27 @@ namespace MouseApp2
             }
         }
 
+        private async Task WaitForAddonReadyTimeoutAsync()
+        {
+            await Task.Delay(20000);
+
+            if (addonUpdateInProgress &&
+                !addonUpdaterReady)
+            {
+                addonUpdateInProgress = false;
+
+                addonUpdateStatusLabel.Text =
+                    "Status: Update failed - updater not ready";
+
+                addonUpdateButton.Enabled = true;
+                browseFirmwareButton.Enabled = true;
+
+                addToLog(
+                    "Firmware update failed: OTA:ready was not received."
+                );
+            }
+        }
+
 
         public void WorkThreadFunction()
         {
@@ -202,15 +223,45 @@ namespace MouseApp2
 
         public void stringReceived(String newLine)
         {
-            if (addonUpdateInProgress && newLine.Contains("ESP32 update mode started"))
+            if (addonUpdateInProgress &&
+                newLine.Contains("ESP32 update mode started"))
             {
-                addToLog("ESP32 is ready for firmware transfer.");
+                addToLog("ESP32 factory updater started.");
+
+                addonUpdateStatusLabel.Text =
+                    "Status: Waiting for updater readiness...";
+
+                return;
+            }
+            if (addonUpdateInProgress &&
+                newLine.Contains("OTA:ready"))
+            {
+                addonUpdaterReady = true;
+                addToLog("ESP32 updater is ready for firmware transfer.");
 
                 addonUpdateStatusLabel.Text =
                     "Status: Transferring firmware...";
 
                 SendAddonFirmwareAsync(
                     firmwarePathTextBox.Text
+                );
+
+                return;
+            }
+            if (addonUpdateInProgress &&
+                newLine.Contains("OTA:error-"))
+            {
+                addonUpdateInProgress = false;
+
+                addonUpdateStatusLabel.Text =
+                    "Status: Firmware update failed";
+
+                addonUpdateButton.Enabled = true;
+                browseFirmwareButton.Enabled = true;
+
+                addToLog(
+                    "ESP32 firmware update error: " +
+                    newLine.Trim()
                 );
 
                 return;
