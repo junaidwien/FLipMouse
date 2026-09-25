@@ -298,6 +298,10 @@ void loop() {
           static const char finishToken[] = "$FINISHED";
           static uint8_t finishIndex = 0;
 
+          static bool errorLineActive = false;
+          static const char errorToken[] = "OTA:error-";
+          static uint8_t errorIndex = 0;
+
           // ESP32 -> Teensy -> PC
           while (Serial_AUX.available())
           {
@@ -305,6 +309,37 @@ void loop() {
 
               // Forward ESP32 response to GUI
               Serial.write(c);
+
+              // Detect "OTA:error-"
+              if (!errorLineActive) {
+                  if (c == errorToken[errorIndex]) {
+                      errorIndex++;
+                      if (errorIndex == sizeof(errorToken) - 1) {
+                          errorLineActive = true;
+                          errorIndex = 0;
+                      }
+                  }
+                  else {
+                      errorIndex = 0;
+                      if (c == errorToken[0]) {
+                          errorIndex = 1;
+                      }
+                  }
+              }
+              else {
+                  // Wait until the complete error line has been forwarded
+                  if (c == '\n') {
+                      errorLineActive = false;
+
+                      Serial_AUX.begin(9600);
+                      addonUpgrade = ADDON_NORMAL;
+
+                      Serial.println("Update of Add-on failed");
+                      Serial.println("Returning to regular functionality");
+
+                      break;
+                  }
+              }
 
               // Detect complete "$FINISHED"
               if (c == finishToken[finishIndex])
@@ -335,6 +370,8 @@ void loop() {
                       finishIndex = 1;
                   }
               }
+
+              
           }
 
           return;

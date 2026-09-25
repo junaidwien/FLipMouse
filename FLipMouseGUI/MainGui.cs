@@ -1718,6 +1718,7 @@ namespace MouseApp2
 
             addonUpdateButton.Enabled = false;
             browseFirmwareButton.Enabled = false;
+            disconnectComButton.Enabled = false;
 
             addonUpdateProgressBar.Value = 0;
             addonUpdateStatusLabel.Text = "Status: Starting update...";

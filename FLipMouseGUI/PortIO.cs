@@ -130,6 +130,7 @@ namespace MouseApp2
 
                 addonUpdateButton.Enabled = true;
                 browseFirmwareButton.Enabled = true;
+                disconnectComButton.Enabled = true;
 
                 addToLog(
                     "Firmware transfer failed: " +
@@ -151,6 +152,7 @@ namespace MouseApp2
 
                 addonUpdateButton.Enabled = true;
                 browseFirmwareButton.Enabled = true;
+                disconnectComButton.Enabled = true;
 
                 addToLog(
                     "Firmware update failed: no completion response received."
@@ -172,6 +174,7 @@ namespace MouseApp2
 
                 addonUpdateButton.Enabled = true;
                 browseFirmwareButton.Enabled = true;
+                disconnectComButton.Enabled = true;
 
                 addToLog(
                     "Firmware update failed: OTA:ready was not received."
@@ -258,6 +261,7 @@ namespace MouseApp2
 
                 addonUpdateButton.Enabled = true;
                 browseFirmwareButton.Enabled = true;
+                disconnectComButton.Enabled = true;
 
                 addToLog(
                     "ESP32 firmware update error: " +
@@ -276,6 +280,7 @@ namespace MouseApp2
 
                 addonUpdateButton.Enabled = true;
                 browseFirmwareButton.Enabled = true;
+                disconnectComButton.Enabled = true;
 
                 addToLog(
                     "Bluetooth add-on firmware update completed successfully."
@@ -292,6 +297,7 @@ namespace MouseApp2
 
                 addonUpdateButton.Enabled = true;
                 browseFirmwareButton.Enabled = true;
+                disconnectComButton.Enabled = true;
 
                 addToLog(
                     "Bluetooth add-on firmware update failed: timeout."
@@ -467,9 +473,13 @@ namespace MouseApp2
         private void disconnect()
         {
             readDone = true;
+
             if (serialPort1.IsOpen)
             {
-                sendEndReportingCommand();  // end reporting raw values !
+                if (!addonUpdateInProgress)
+                {
+                    sendEndReportingCommand();
+                }
 
                 portStatus.Text = "Disconnected";
                 addToLog("Port " + portComboBox.Text + " is now disconnected");
